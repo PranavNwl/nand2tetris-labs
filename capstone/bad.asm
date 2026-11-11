@@ -1,0 +1,8 @@
+@2
+D=A
+@3
+D=X+A
+@12x
+FOO
+D=A;JXX
+M=D

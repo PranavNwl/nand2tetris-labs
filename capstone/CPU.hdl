@@ -1,0 +1,42 @@
+CHIP CPU {
+    IN inM[16], instruction[16], reset;
+    OUT outM[16], writeM, addressM[15], pc[15];
+
+    PARTS:
+    // A-instruction if bit 15 is 0
+    Not(in=instruction[15], out=isA);
+
+    // A register takes the instruction (A-instr) or the ALU result (C-instr)
+    Mux16(a=aluOut, b=instruction, sel=isA, out=aIn);
+    Or(a=isA, b=instruction[5], out=loadA);
+    ARegister(in=aIn, load=loadA, out=aOut, out[0..14]=addressM);
+
+    // ALU second input is A or M, chosen by the "a" bit
+    Mux16(a=aOut, b=inM, sel=instruction[12], out=aOrM);
+
+    // D register loads only for a C-instruction with the d2 bit set
+    And(a=instruction[15], b=instruction[4], out=loadD);
+    DRegister(in=aluOut, load=loadD, out=dOut);
+
+    ALU(x=dOut, y=aOrM,
+        zx=instruction[11], nx=instruction[10],
+        zy=instruction[9], ny=instruction[8],
+        f=instruction[7], no=instruction[6],
+        out=aluOut, out=outM, zr=zr, ng=ng);
+
+    // write to memory only for a C-instruction with the d3 bit set
+    And(a=instruction[15], b=instruction[3], out=writeM);
+
+    // jump logic
+    Not(in=ng, out=notNg);
+    Not(in=zr, out=notZr);
+    And(a=notNg, b=notZr, out=pos);
+    And(a=instruction[0], b=pos, out=jgt);
+    And(a=instruction[1], b=zr, out=jeq);
+    And(a=instruction[2], b=ng, out=jlt);
+    Or(a=jgt, b=jeq, out=j1);
+    Or(a=j1, b=jlt, out=j2);
+    And(a=instruction[15], b=j2, out=jump);
+
+    PC(in=aOut, load=jump, inc=true, reset=reset, out[0..14]=pc);
+}
